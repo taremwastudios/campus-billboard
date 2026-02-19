@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Billboard | Retro Node</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Gloria+Hallelujah&family=Inter:wght@400;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --board-bg: #8d6e63; --paper-bg: #fff9c4; --text-color: #3e2723; --accent: #d32f2f; --font-main: 'Courier Prime', monospace;
+        }
+        .theme-dark { --board-bg: #1a1a1b; --paper-bg: #2d2d30; --text-color: #e0e0e0; --accent: #bb86fc; }
+        .theme-blueprint { --board-bg: #0d47a1; --paper-bg: #e3f2fd; --text-color: #0d47a1; --accent: #ffeb3b; --grid: rgba(255,255,255,0.1); }
+        .theme-terminal { --board-bg: #000000; --paper-bg: #0a0a0a; --text-color: #00ff41; --accent: #00ff41; --font-main: 'Courier Prime', monospace; }
+        
+        .theme-blueprint body { background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 20px 20px; }
+        .theme-terminal body { background-image: linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px); background-size: 100% 3px; }
+        .theme-terminal .sticky-note { border: 1px solid #00ff41; box-shadow: 0 0 10px rgba(0, 255, 65, 0.2); }
+        
+        body { 
+            background-color: var(--board-bg); color: var(--text-color);
+            font-family: var(--font-main); transition: all 0.4s ease;
+            background-image: radial-gradient(rgba(0,0,0,0.1) 1px, transparent 1px); background-size: 20px 20px;
+        }
+        .bulletin-board { max-width: 800px; margin: 0 auto; padding: 40px 20px; padding-bottom: 120px; }
+        .sticky-note {
+            background-color: var(--paper-bg); color: var(--text-color); padding: 25px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.2); margin-bottom: 30px;
+            position: relative; transition: all 0.2s ease;
+        }
+        .pin { width: 12px; height: 12px; background-color: var(--accent); border-radius: 50%; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 10; }
+        .pin-gold { background-color: #d32f2f; box-shadow: 0 0 5px rgba(211, 47, 47, 0.5); }
+        .pin-verified { background-color: #1d9bf0; }
+        .pin-regular { background-color: #8d6e63; }
+        .pin-dev { background-color: #4caf50; }
+        .badge-twitter {
+            display: inline-flex; width: 16px; height: 16px;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M22.5 12.5c0-1.58-.88-2.95-2.18-3.65.54-1.53.43-3.26-.46-4.55-1.28-1.28-3.02-1.39-4.55-.46-.7-.88-2.07-2.18-3.65-2.18S8.7 2.45 8 3.32c-1.53-.46-3.27-.35-4.55.46-1.28 1.28-1.39 3.02-.46 4.55-.88.7-2.18 2.07-2.18 3.65s1.3 2.95 2.18 3.65c-.46 1.53-.35 3.27.46 4.55 1.28 1.28 3.02 1.39 4.55.46.7.88 2.07 2.18 3.65 2.18s2.95-1.3 3.65-2.18c1.53.46 3.27.35 4.55-.46 1.28-1.28 1.39-3.02.46-4.55.88-.7 2.18-2.07 2.18-3.65z'/%3E%3C/svg%3E") no-repeat center;
+            background-color: currentColor; margin-left: 4px;
+        }
+        .badge-ug { color: #FCD116; background: linear-gradient(45deg, #000, #FCD116, #CE1126); }
+        .badge-gold { background: linear-gradient(45deg, #d4af37, #f9d71c); }
+        .badge-dev { background-color: #4caf50; }
+        .modal { background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .modal-content { background: var(--paper-bg); color: var(--text-color); border: 4px solid var(--board-bg); padding: 40px; border-radius: 10px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; }
+        .post-bar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: var(--paper-bg); border-top: 4px solid var(--board-bg);
+            padding: 15px 20px; z-index: 500; display: flex; gap: 15px; align-items: center;
+        }
+        .handwritten { font-family: 'Gloria Hallelujah', cursive; }
+        .mod-btn { font-size: 8px; font-weight: bold; border: 1px solid black; padding: 2px 4px; border-radius: 4px; opacity: 0.3; transition: opacity 0.2s; }
+        .mod-btn:hover { opacity: 1; }
+        .report-link { font-size: 9px; opacity: 0.4; cursor: pointer; text-transform: uppercase; margin-left: auto; }
+        .report-link:hover { opacity: 1; color: var(--accent); }
+        .pulse-badge { background: var(--accent); color: white; font-size: 8px; padding: 2px 6px; border-radius: 4px; font-weight: 900; animation: blink 1s infinite; }
+        .power-tag { font-size: 10px; color: var(--accent); vertical-align: super; font-weight: 900; margin-left: 2px; }
+        .typewriter-fade { font-size: 10px; opacity: 0.4; font-family: 'Courier Prime', monospace; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        const Badge = ({ type }) => {
+            if (type === 'verified') return <span className="badge-twitter badge-ug" title="Verified UG"></span>;
+            if (type === 'gold') return <span className="badge-twitter badge-gold" title="Gold Elite"></span>;
+            if (type === 'dev') return <span className="badge-twitter badge-dev" title="Dev Team"></span>;
+            return null;
+        };
+
+        const PostList = ({ list, user, API_URL, openNode, muteUser, deletePost, reportPost }) => {
+            return (
+                <div className="flex flex-col">
+                    {list.map(post => (
+                        <div key={post.id} className={`sticky-note ${post.badge_type === 'gold' ? 'ring-1 ring-yellow-500/30 shadow-yellow-500/5' : ''}`} style={{ transform: 'none', backgroundColor: 'var(--paper-bg)' }}>
+                            {/* Dynamic Pin */}
+                            <div className={`pin ${
+                                post.badge_type === 'gold' ? 'bg-yellow-500 shadow-[0_0_5px_gold]' : 
+                                post.badge_type === 'verified' ? 'bg-blue-400' : 'bg-red-500'
+                            }`}></div>
+
+                            {/* Status Seals */}
+                            {post.badge_type === 'gold' && (
+                                <div className="absolute bottom-2 right-2 opacity-20 rotate-12 pointer-events-none select-none">
+                                    <div className="border-4 border-red-800 p-1 rounded-full"><span className="text-[8px] font-black text-red-800 uppercase">ELITE</span></div>
+                                </div>
+                            )}
+                            {post.badge_type === 'verified' && (
+                                <div className="absolute bottom-2 right-2 opacity-10 -rotate-12 pointer-events-none select-none">
+                                    <div className="border-2 border-blue-800 p-1 px-2 rounded-sm"><span className="text-[7px] font-black text-blue-800 uppercase">VERIFIED</span></div>
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full overflow-hidden border border-black bg-white">
+                                        <img src={post.user_avatar ? `${API_URL}/${post.user_avatar}` : 'https://api.dicebear.com/7.x/avataaars/svg?seed='+post.username} className="w-full h-full object-cover" />
+                                    </div>
+                                    <span onClick={() => openNode(post.username)} className="font-bold text-xs uppercase cursor-pointer hover:underline">{post.username}</span>
+                                    <Badge type={post.badge_type} />
+                                    {post.post_type === 'news' && <span className="pulse-badge">PULSE</span>}
+                                </div>
+                                {user && user.badge_type === 'dev' ? (
+                                    <div className="flex gap-1">
+                                        <button onClick={() => muteUser(post.username)} className="mod-btn text-yellow-600">M</button>
+                                        <button onClick={() => deletePost(post.id)} className="mod-btn text-red-600">X</button>
+                                    </div>
+                                ) : (
+                                    <span onClick={() => reportPost(post.id)} className="report-link">Report</span>
+                                )}
+                            </div>
+                            <p className="text-sm handwritten text-lg">{post.content}</p>
+                            {post.media_url && (
+                                <div className="mt-4">
+                                    {post.media_type === 'image' && <img src={`${API_URL}/${post.media_url}`} className="rounded-lg border-2 border-black/10 max-h-64 object-cover w-full" />}
+                                    {post.media_type === 'video' && <video controls className="rounded-lg border-2 border-black/10 w-full max-h-64"><source src={`${API_URL}/${post.media_url}`} type="video/mp4" /></video>}
+                                    {(post.media_type === 'pdf' || post.media_type === 'document') && (
+                                        <a href={`${API_URL}/${post.media_url}`} target="_blank" className="flex items-center gap-2 p-3 bg-black/5 rounded-xl border border-black/10 hover:bg-black/10 transition-all">
+                                            <span className="text-xl">📄</span>
+                                            <p className="text-[10px] font-black uppercase">Open Document</p>
+                                        </a>
+                                    )}
+                                </div>
+                            )}
+                            <div className="mt-4 pt-2 border-t border-black/5 flex justify-end">
+                                <span className="text-[9px] font-bold opacity-30 uppercase tracking-tighter">
+                                    Transmitted: {new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(post.created_at).toLocaleDateString()}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                    {list.length === 0 && <p className="text-center opacity-30 italic py-20">Nothing transmitted here yet.</p>}
+                </div>
+            );
+        };
+
+        function App() {
+            const [view, setView] = useState('wall');
+            const [theme, setTheme] = useState('retro');
+            const [user, setUser] = useState(null);
+            const [posts, setPosts] = useState([]);
+            const [news, setNews] = useState([]);
+            const [authStep, setAuthStep] = useState('login'); 
+            const [regData, setRegData] = useState({ email: '', phone: '', full_names: '', home_address: '', username: '', password: '' });
+            const [loginData, setLoginData] = useState({ username: '', password: '' });
+            const [verifyCode, setVerifyCode] = useState('');
+            const [showStore, setShowStore] = useState(false);
+            const [pendingPayId, setPendingPayId] = useState(null);
+            const [adminView, setAdminView] = useState(false);
+            const [pendingPayments, setPendingPayments] = useState([]);
+            const [pendingDevs, setPendingDevs] = useState([]);
+            const [pendingReports, setPendingReports] = useState([]);
+            const [clickCount, setClickCount] = useState(0);
+            const [showDevApp, setShowDevApp] = useState(false);
+            const [devAppData, setDevAppData] = useState({ country: '', trusted_1: '', trusted_2: '', role: '', salary: '', experience: '', marital: 'single', suggestions: '' });
+            const [chatList, setChatList] = useState([]);
+            const [currentChatUser, setCurrentChatUser] = useState(null);
+            const [chatMessages, setChatMessages] = useState([]);
+            const [newMessage, setNewMessage] = useState("");
+            const [selectedNode, setSelectedNode] = useState(null);
+            const [postContent, setPostContent] = useState("");
+            const [targetChannel, setTargetChannel] = useState("text");
+            const [channels, setChannels] = useState([]);
+            const [currentChannel, setCurrentChannel] = useState(null);
+            const [showCreateChannel, setShowCreateChannel] = useState(false);
+            const [newChannelData, setNewChannelData] = useState({ name: '', description: '', price: 0 });
+            const [unreads, setUnreads] = useState({ wall: 0, pulse: 0, nodes: 0, chats: 0 });
+
+            const API_URL = (window.location.protocol === 'file:') 
+                ? "http://127.0.0.1:8006" 
+                : window.location.origin; 
+
+            // Ref logic to prevent unnecessary re-renders when fetch functions are passed as dependencies
+            const postsRef = useRef([]);
+            const newsRef = useRef([]);
+            const chatListRef = useRef([]);
+            useEffect(() => { postsRef.current = posts; }, [posts]);
+            useEffect(() => { newsRef.current = news; }, [news]);
+            useEffect(() => { chatListRef.current = chatList; }, [chatList]);
+
+
+            const fetchFeed = useCallback(async (initialLoad = false) => {
+                try {
+                    const latestPostId = postsRef.current.length > 0 ? postsRef.current[0].id : 0;
+                    const res = await fetch(`${API_URL}/feed?limit=100&after_id=${latestPostId}`);
+                    const newPosts = await res.json();
+                    
+                    if (newPosts.length > 0) {
+                        setPosts(prevPosts => {
+                            // Filter out any potential duplicates and ensure prepending
+                            const uniqueNewPosts = newPosts.filter(np => !prevPosts.some(pp => pp.id === np.id));
+                            // Sort new posts to ensure correct order before prepending
+                            const sortedNewPosts = uniqueNewPosts.sort((a, b) => b.id - a.id); // Assuming ID is increasing for newest
+                            return [...sortedNewPosts, ...prevPosts].slice(0, 100); // Keep only the 100 newest
+                        });
+                    } else if (initialLoad && postsRef.current.length === 0) {
+                         // If it's the initial load and no new posts, fetch the full list
+                         const initialRes = await fetch(`${API_URL}/feed?limit=100`);
+                         setPosts(await initialRes.json());
+                    }
+
+                } catch (e) { console.error("Feed offline:", e); }
+            }, [API_URL]); // Dependencies for useCallback
+
+            const fetchNews = useCallback(async (initialLoad = false) => {
+                try {
+                    const latestNewsId = newsRef.current.length > 0 ? newsRef.current[0].id : 0;
+                    const res = await fetch(`${API_URL}/news?limit=100&after_id=${latestNewsId}`);
+                    const newNews = await res.json();
+                    
+                    if (newNews.length > 0) {
+                        setNews(prevNews => {
+                            const uniqueNewNews = newNews.filter(nn => !prevNews.some(pn => pn.id === nn.id));
+                            const sortedNewNews = uniqueNewNews.sort((a, b) => b.id - a.id);
+                            return [...sortedNewNews, ...prevNews].slice(0, 100); // Keep only the 100 newest
+                        });
+                    } else if (initialLoad && newsRef.current.length === 0) {
+                         const initialRes = await fetch(`${API_URL}/news?limit=100`);
+                         setNews(await initialRes.json());
+                    }
+                } catch (e) { console.error("News offline:", e); }
+            }, [API_URL]); // Dependencies for useCallback
+
+            const fetchChatList = useCallback(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/chat-list/${user.id}`);
+                    setChatList(await res.json());
+                } catch (e) { console.error("Chat list offline:", e); }
+            }, [API_URL, user]); // Dependencies for useCallback
+
+            const fetchChannels = useCallback(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/channels`);
+                    setChannels(await res.json());
+                } catch (e) { console.error("Channels offline:", e); }
+            }, [API_URL]); // Dependencies for useCallback
+
+            const fetchAdminData = useCallback(async () => {
+                try {
+                    const res1 = await fetch(`${API_URL}/admin/pending-payments`);
+                    if (res1.ok) setPendingPayments(await res1.json());
+                    const res2 = await fetch(`${API_URL}/admin/pending-devs`);
+                    if (res2.ok) setPendingDevs(await res2.json());
+                    const res3 = await fetch(`${API_URL}/admin/reports`);
+                    if (res3.ok) setPendingReports(await res3.json());
+                } catch (e) { console.error("Admin fetch failed:", e); }
+            }, [API_URL]); // Dependencies for useCallback
+
+
+            // --- REAL-TIME HEARTBEAT (WhatsApp-Style Stable Updates) ---
+            useEffect(() => {
+                if (!user) return;
+
+                const heartbeat = setInterval(async () => {
+                    try {
+                        // Only fetch for current view if it's the main feed or pulse
+                        if (view === 'wall') fetchFeed();
+                        if (view === 'pulse') fetchNews();
+                        if (view === 'chats') fetchChatList(); // Refresh chat list (not messages)
+                        
+                        // Fast Sync for Chats (Active View)
+                        if (view === 'private-chat' && currentChatUser) {
+                            const res = await fetch(`${API_URL}/messages/${user.id}/${currentChatUser.id}`);
+                            const msgs = await res.json();
+                            if (msgs.length !== chatMessages.length) setChatMessages(msgs);
+                        }
+
+                        // Power Numbers (background checks)
+                        const uRes = await fetch(`${API_URL}/unreads/${user.id}`);
+                        const counts = await uRes.json();
+                        setUnreads(prev => ({
+                            ...prev,
+                            wall: (view === 'wall') ? 0 : counts.wall,
+                            pulse: (view === 'pulse') ? 0 : counts.pulse,
+                            nodes: (view === 'channels' || view === 'channel-view') ? 0 : counts.nodes,
+                            chats: (view === 'chats' || view === 'private-chat') ? 0 : counts.chats
+                        }));
+
+                        // Mark as read if currently viewing
+                        if (view === 'wall' && counts.wall > 0) fetch(`${API_URL}/mark-read/${user.id}/wall`, {method: 'POST'});
+                        if (view === 'pulse' && counts.pulse > 0) fetch(`${API_URL}/mark-read/${user.id}/pulse`, {method: 'POST'});
+                        if (view === 'channel-view' && counts.nodes > 0) fetch(`${API_URL}/mark-read/${user.id}/nodes`, {method: 'POST'});
+                        if (view === 'private-chat' && counts.chats > 0) fetch(`${API_URL}/mark-read/${user.id}/chats`, {method: 'POST'});
+
+
+                    } catch (e) { console.warn("Background poll failed:", e); }
+                }, view === 'private-chat' ? 2000 : 5000);
+
+                return () => clearInterval(heartbeat);
+            }, [user, view, currentChatUser, fetchFeed, fetchNews, fetchChatList, chatMessages.length, fetchChannels]);
+
+            // Initial fetches
+            useEffect(() => { if (user) fetchFeed(true); }, [user, fetchFeed]); 
+            useEffect(() => { if (user && view === 'pulse') fetchNews(true); }, [user, view, fetchNews]); 
+            useEffect(() => { if (user) fetchChannels(); }, [user, fetchChannels]); // Fetch channels on user load
+            useEffect(() => { if (user && view === 'chats') fetchChatList(); }, [user, view, fetchChatList]); // Fetch chat list when user or view changes
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                try {
+                    const res = await fetch(`${API_URL}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(loginData)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+                    setUser(data);
+                    setAuthStep('none');
+                } catch (err) { alert(err.message); }
+            };
+
+            const handleRegister = async (e) => {
+                e.preventDefault();
+                try {
+                    const res = await fetch(`${API_URL}/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(regData)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+                    setAuthStep('verify');
+                } catch (err) { alert(err.message); }
+            };
+
+            const handleVerify = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/verify-email`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: regData.email, code: verifyCode, user_data: regData })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+                    setUser({ ...regData, id: data.user_id, badge_type: 'none' });
+                    setAuthStep('none');
+                } catch (err) { alert(err.message); }
+            };
+
+            const handleUpdateProfile = async (bio, avatarFile) => {
+                const formData = new FormData();
+                formData.append('user_id', user.id);
+                if (bio) formData.append('bio', bio);
+                if (avatarFile) formData.append('avatar', avatarFile);
+                try {
+                    const res = await fetch(`${API_URL}/update-profile`, { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (res.ok) {
+                        alert("Node Updated");
+                        setUser({...user, bio: bio || user.bio, avatar_url: data.avatar_url || user.avatar_url});
+                    }
+                } catch (e) { alert("Update failed"); }
+            };
+
+            const submitPost = async (e) => {
+                e.preventDefault();
+                if (!postContent.trim()) return;
+                const formData = new FormData();
+                formData.append('user_id', user.id);
+                formData.append('content', postContent);
+                formData.append('post_type', targetChannel);
+                if (view === 'channel-view' && currentChannel) formData.append('channel_id', currentChannel.id);
+                const fileInput = document.getElementById('post-attach');
+                if (fileInput && fileInput.files[0]) formData.append('media', fileInput.files[0]);
+
+                try {
+                    const res = await fetch(`${API_URL}/post`, { method: 'POST', body: formData });
+                    if (!res.ok) throw new Error((await res.json()).detail || "Transmission failed");
+                    setPostContent("");
+                    if (fileInput) fileInput.value = "";
+                    // Trigger a fetch to update the feed immediately after posting
+                    if (targetChannel === 'news' || view === 'pulse') fetchNews();
+                    else if (view === 'channel-view' && currentChannel) {
+                        // Re-fetch channel feed to show new post
+                        const res = await fetch(`${API_URL}/channel-feed/${currentChannel.id}?user_id=${user.id}`);
+                        setPosts(await res.json());
+                    }
+                    else fetchFeed();
+                } catch (err) { alert(err.message); }
+            };
+
+            const deletePost = async (id) => {
+                if(!confirm("Delete Transmission?")) return;
+                await fetch(`${API_URL}/admin/delete-post/${id}`, { method: 'POST' });
+                fetchFeed(); fetchNews(); fetchAdminData();
+            };
+
+            const muteUser = async (username) => {
+                if(!confirm(`Mute @${username} for 24h?`)) return;
+                await fetch(`${API_URL}/admin/mute-user/${username}`, { method: 'POST' });
+                alert("User Muted");
+            };
+
+            const reportPost = async (id) => {
+                if(!confirm("Report this transmission?")) return;
+                const formData = new FormData();
+                formData.append('user_id', user.id);
+                await fetch(`${API_URL}/report-post/${id}`, { method: 'POST', body: formData });
+                alert("Report Transmitted.");
+            };
+
+            const openNode = async (username) => {
+                try {
+                    const res = await fetch(`${API_URL}/get-user/${username}`);
+                    setSelectedNode(await res.json());
+                    setView('other-node');
+                } catch (e) { alert("Node not found"); }
+            };
+
+            const openChat = async (target) => {
+                setCurrentChatUser(target);
+                setView('private-chat');
+                try {
+                    const res = await fetch(`${API_URL}/messages/${user.id}/${target.id}`);
+                    setChatMessages(await res.json());
+                } catch (e) { setChatMessages([]); }
+            };
+
+            const sendMessage = async (e) => {
+                e.preventDefault();
+                if (!newMessage.trim()) return;
+                const formData = new FormData();
+                formData.append('sender_id', user.id);
+                formData.append('receiver_id', currentChatUser.id);
+                formData.append('content', newMessage);
+                await fetch(`${API_URL}/send-message`, { method: 'POST', body: formData });
+                setNewMessage("");
+                const res = await fetch(`${API_URL}/messages/${user.id}/${currentChatUser.id}`);
+                setChatMessages(await res.json());
+            };
+
+            const handleCreateChannel = async (e) => {
+                e.preventDefault();
+                const formData = new FormData();
+                formData.append('owner_id', user.id);
+                formData.append('name', newChannelData.name);
+                formData.append('description', newChannelData.description);
+                formData.append('price', newChannelData.price);
+                try {
+                    const res = await fetch(`${API_URL}/create-channel`, { method: 'POST', body: formData });
+                    if (res.ok) {
+                        alert("Node Spawned!");
+                        setShowCreateChannel(false);
+                        fetchChannels();
+                    }
+                } catch (e) { alert("Spawning failed"); }
+            };
+
+            const openChannel = async (channel) => {
+                try {
+                    const res = await fetch(`${API_URL}/channel-feed/${channel.id}?user_id=${user.id}`);
+                    if (!res.ok) {
+                        if (res.status === 403) {
+                            if (confirm(`Join for ${channel.access_price} UGX?`)) handleJoinChannel(channel.id);
+                        }
+                        return;
+                    }
+                    setCurrentChannel(channel);
+                    setPosts(await res.json());
+                    setView('channel-view');
+                } catch (e) { alert("Access Denied"); }
+            };
+
+            const handleJoinChannel = async (channelId) => {
+                const formData = new FormData();
+                formData.append('user_id', user.id);
+                await fetch(`${API_URL}/join-channel/${channelId}`, { method: 'POST', body: formData });
+                alert("Joined!");
+                fetchChannels();
+            };
+
+            const initiatePay = async (itemId, amount) => {
+                const res = await fetch(`${API_URL}/initiate-payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id, item_id: itemId, amount: amount })
+                });
+                const data = await res.json();
+                setPendingPayId({ id: data.payment_id, item: itemId });
+            };
+
+            const confirmPay = async () => {
+                const pin = document.getElementById('sim-pin').value;
+                if (!pin || pin.length < 4) { alert("Enter 4-digit PIN"); return; }
+                try {
+                    const res = await fetch(`${API_URL}/simulated-payment/confirm`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ payment_id: pendingPayId.id, test_code: pin })
+                    });
+                    if (res.ok) { 
+                        alert("Promoted!"); 
+                        setPendingPayId(null);
+                        fetch(`${API_URL}/get-user/${user.username}`).then(r => r.json()).then(u => setUser(p => ({...p, ...u})));
+                    } else alert("Failed");
+                } catch (e) { alert("Error"); }
+            };
+
+            const handleLogoClick = () => {
+                setClickCount(prev => {
+                    if (prev + 1 === 5) { setAdminView(true); fetchAdminData(); return 0; }
+                    return prev + 1;
+                });
+            };
+
+            const approvePayment = async (payId) => {
+                const res = await fetch(`${API_URL}/admin/approve-payment/${payId}`, { method: 'POST' });
+                if (res.ok) fetchAdminData();
+            };
+
+            const approveDev = async (appId) => {
+                const res = await fetch(`${API_URL}/admin/approve-dev/${appId}`, { method: 'POST' });
+                if (res.ok) fetchAdminData();
+            };
+
+            const submitDevApp = async (e) => {
+                e.preventDefault();
+                const formData = new FormData();
+                formData.append('user_id', user.id);
+                formData.append('details', JSON.stringify(devAppData));
+                const fileInput = document.getElementById('cert-pdf');
+                if (fileInput.files[0]) formData.append('cert_pdf', fileInput.files[0]);
+                await fetch(`${API_URL}/apply-dev`, { method: 'POST', body: formData });
+                alert("Submitted"); setShowDevApp(false);
+            };
+
+            if (!user) {
+                if (authStep === 'login') return (
+                    <div className="flex items-center justify-center min-h-screen p-6">
+                        <form onSubmit={handleLogin} className="modal-content text-center shadow-2xl">
+                            <h1 className="text-3xl font-black mb-6 handwritten">Campus Billboard</h1>
+                            <input type="text" placeholder="Username" required className="w-full bg-black/5 border-b border-black p-3 mb-4 outline-none" onChange={e=>setLoginData({...loginData, username: e.target.value})} />
+                            <input type="password" placeholder="Password" required className="w-full bg-black/5 border-b border-black p-3 mb-8 outline-none" onChange={e=>setLoginData({...loginData, password: e.target.value})} />
+                            <button type="submit" className="w-full bg-black text-white p-4 font-bold uppercase hover:bg-zinc-800 transition-all">Sign In</button>
+                            <button type="button" onClick={() => setAuthStep('register')} className="mt-6 text-xs uppercase underline block w-full">Request New ID</button>
+                        </form>
+                    </div>
+                );
+                if (authStep === 'register') return (
+                    <div className="flex items-center justify-center min-h-screen p-6">
+                        <div className="modal-content shadow-2xl">
+                            <h2 className="text-2xl font-black mb-6 handwritten text-center">Identity Registration</h2>
+                            <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="text" placeholder="Full Names" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, full_names: e.target.value})} />
+                                <input type="text" placeholder="Username" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, username: e.target.value})} />
+                                <input type="email" placeholder="Email" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, email: e.target.value})} />
+                                <input type="tel" placeholder="Phone" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, phone: e.target.value})} />
+                                <input type="text" placeholder="Home Address" required className="bg-transparent border-b border-black p-2 text-sm md:col-span-2 outline-none" onChange={e=>setRegData({...regData, home_address: e.target.value})} />
+                                <input type="password" placeholder="Passkey" required className="bg-transparent border-b border-black p-2 text-sm md:col-span-2 outline-none" onChange={e=>setRegData({...regData, password: e.target.value})} />
+                                <button className="md:col-span-2 bg-black text-white p-4 font-bold uppercase mt-4">Initialize</button>
+                            </form>
+                            <button onClick={() => setAuthStep('login')} className="mt-4 w-full text-xs underline text-center">Back</button>
+                        </div>
+                    </div>
+                );
+                if (authStep === 'verify') return (
+                    <div className="flex items-center justify-center min-h-screen p-6">
+                        <div className="modal-content text-center shadow-2xl">
+                            <h2 className="text-2xl font-black mb-4 handwritten">Verify Email</h2>
+                            <input type="text" maxLength="7" className="w-full bg-transparent border-b-2 border-black p-4 text-center text-2xl font-black outline-none mb-8" value={verifyCode} onChange={e=>setVerifyCode(e.target.value)} />
+                            <button onClick={handleVerify} className="w-full bg-black text-white p-4 font-bold uppercase">Activate</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`theme-${theme} min-h-screen pb-20`}>
+                    <header className="p-6 text-center border-b-4 border-double border-black bg-white/30 backdrop-blur-sm sticky top-0 z-50">
+                        <h1 onClick={handleLogoClick} className="text-4xl font-black handwritten tracking-tighter cursor-pointer select-none">Campus Billboard</h1>
+                        <div className="flex justify-center gap-6 mt-4 text-[10px] font-black uppercase tracking-widest overflow-x-auto whitespace-nowrap pb-2">
+                            <button onClick={() => setView('wall')} className={view === 'wall' ? 'underline' : ''}>
+                                The Board{unreads.wall > 0 && <span className="power-tag">{unreads.wall}</span>}
+                            </button>
+                            <button onClick={() => setView('pulse')} className={view === 'pulse' ? 'underline' : ''}>
+                                Campus Pulse{unreads.pulse > 0 && <span className="power-tag">{unreads.pulse}</span>}
+                            </button>
+                            <button onClick={() => { setView('channels'); fetchChannels(); }} className={view === 'channels' ? 'underline' : ''}>
+                                Private Nodes{unreads.nodes > 0 && <span className="power-tag">{unreads.nodes}</span>}
+                            </button>
+                            <button onClick={() => { setView('chats'); fetchChatList(); }} className={view === 'chats' ? 'underline' : ''}>
+                                Chats{unreads.chats > 0 && <span className="power-tag">{unreads.chats}</span>}
+                            </button>
+                            <button onClick={() => setShowStore(true)}>The Store</button>
+                            <button onClick={() => setView('node')} className={view === 'node' ? 'underline' : ''}>Profile</button>
+                        </div>
+                    </header>
+
+                    <main className="bulletin-board">
+                        {view === 'wall' && <PostList list={posts} user={user} API_URL={API_URL} openNode={openNode} muteUser={muteUser} deletePost={deletePost} reportPost={reportPost} />}
+                        {view === 'pulse' && <PostList list={news} user={user} API_URL={API_URL} openNode={openNode} muteUser={muteUser} deletePost={deletePost} reportPost={reportPost} />}
+                        {view === 'channel-view' && (
+                            <div>
+                                <div className="sticky-note bg-black text-white mb-8">
+                                    <button onClick={() => setView('channels')} className="text-xl mb-2">←</button>
+                                    <h2 className="text-2xl font-black uppercase">{currentChannel?.name}</h2>
+                                    <p className="text-xs opacity-70 italic">{currentChannel?.description}</p>
+                                </div>
+                                <PostList list={posts} user={user} API_URL={API_URL} openNode={openNode} muteUser={muteUser} deletePost={deletePost} reportPost={reportPost} />
+                            </div>
+                        )}
+
+                        {view === 'channels' && (
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center mb-8">
+                                    <h2 className="text-2xl font-black handwritten">Private Nodes</h2>
+                                    <button onClick={() => setShowCreateChannel(true)} className="bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase">Spawn Node</button>
+                                </div>
+                                {channels.map(c => (
+                                    <div key={c.id} onClick={() => openChannel(c)} className={`sticky-note cursor-pointer group hover:scale-[1.02] transition-transform ${c.channel_type === 'business' ? 'border-l-8 border-green-600' : ''}`}>
+                                        <div className={`pin ${c.channel_type === 'business' ? 'pin-dev' : 'pin-regular'}`}></div>
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h3 className="text-xl font-black uppercase flex items-center gap-2">
+                                                    {c.channel_type === 'business' && <span>🏪</span>}
+                                                    # {c.name}
+                                                </h3>
+                                                <p className="text-[10px] opacity-60">{c.channel_type === 'business' ? 'Official Hub' : `Owner: @${c.owner_name}`}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs font-black">{c.access_price === 0 ? 'FREE' : `${c.access_price} UGX`}</p>
+                                                <p className="text-[8px] uppercase opacity-40">Entry Fee</p>
+                                            </div>
+                                        </div>
+                                        <p className="mt-4 text-sm handwritten opacity-80">{c.description}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {view === 'node' && (
+                            <div className="sticky-note text-center">
+                                <label className="cursor-pointer">
+                                    <div className="w-32 h-32 rounded-full border-4 border-black overflow-hidden mx-auto mb-4 bg-white">
+                                        <img src={user.avatar_url ? `${API_URL}/${user.avatar_url}` : 'https://api.dicebear.com/7.x/avataaars/svg?seed='+user.username} className="w-full h-full object-cover" />
+                                    </div>
+                                    <input type="file" className="hidden" onChange={e => handleUpdateProfile(user.bio, e.target.files[0])} />
+                                </label>
+                                <h2 className="text-2xl font-black">@{user.username} <Badge type={user.badge_type} /></h2>
+                                {user.subscription_expiry && (
+                                    <p className="typewriter-fade uppercase tracking-tighter">
+                                        Identity Expires: {Math.ceil((new Date(user.subscription_expiry) - new Date()) / (1000 * 60 * 60 * 24))} Days Remaining
+                                    </p>
+                                )}
+                                <div className="flex justify-center gap-4 mt-4 mb-6">
+                                    {['retro', 'dark', 'blueprint', 'terminal'].map(t => {
+                                        const isLocked = (t === 'blueprint' && !['verified', 'gold', 'dev'].includes(user.badge_type)) || 
+                                                         (t === 'terminal' && !['gold', 'dev'].includes(user.badge_type));
+                                        return (
+                                            <button key={t} onClick={() => isLocked ? setShowStore(true) : setTheme(t)} className={`w-10 h-10 rounded-full border-2 border-black flex items-center justify-center transition-all hover:scale-110 ${t === 'retro' ? 'bg-[#8d6e63]' : t === 'dark' ? 'bg-[#1a1a1b]' : t === 'blueprint' ? 'bg-[#0d47a1]' : 'bg-black text-[#00ff41]'}`}>
+                                                {isLocked ? '🔒' : ''}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <textarea className="w-full bg-transparent handwritten text-center text-xl mt-4 h-32 outline-none resize-none" value={user.bio || ""} onChange={e => setUser({...user, bio: e.target.value})} placeholder="Essay..."></textarea>
+                                <div className="mt-8 flex gap-4">
+                                    <button onClick={() => handleUpdateProfile(user.bio, null)} className="flex-1 bg-black text-white p-4 font-black uppercase text-xs">Save Update</button>
+                                    <button onClick={() => setView('wall')} className="flex-1 border-2 border-black p-4 font-black uppercase text-xs">Back</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'other-node' && selectedNode && (
+                            <div className="sticky-note text-center">
+                                <button onClick={() => setView('wall')} className="absolute top-4 left-4 text-xl">←</button>
+                                <div className="w-32 h-32 rounded-full border-4 border-black overflow-hidden mx-auto mb-4 bg-white shadow-xl">
+                                    <img src={selectedNode.avatar_url ? `${API_URL}/${selectedNode.avatar_url}` : 'https://api.dicebear.com/7.x/avataaars/svg?seed='+selectedNode.username} className="w-full h-full object-cover" />
+                                </div>
+                                <h2 className="text-2xl font-black">@{selectedNode.username} <Badge type={selectedNode.badge_type} /></h2>
+                                <p className="handwritten text-xl mt-4 px-4">{selectedNode.bio || "No bio yet."}</p>
+                                <button onClick={() => openChat(selectedNode)} className="mt-8 bg-black text-white px-8 py-3 rounded-xl font-black uppercase text-xs">Message</button>
+                            </div>
+                        )}
+
+                        {view === 'private-chat' && currentChatUser && (
+                            <div className="flex flex-col h-[70vh]">
+                                <div className="sticky-note flex items-center gap-4 mb-4">
+                                    <button onClick={() => setView('chats')} className="text-xl">←</button>
+                                    <span className="font-black uppercase">{currentChatUser.username}</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                                    {chatMessages.map(m => (
+                                        <div key={m.id} className={`flex ${m.sender_id === user.id ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`p-4 rounded-xl max-w-[80%] ${m.sender_id === user.id ? 'bg-black text-white' : 'bg-white border-2 border-black'}`}>
+                                                <p className="text-sm">{m.content}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <form onSubmit={sendMessage} className="mt-4 flex gap-2">
+                                    <input value={newMessage} onChange={e=>setNewMessage(e.target.value)} placeholder="Message..." className="flex-1 border-2 border-black p-3 rounded-xl handwritten text-lg outline-none" />
+                                    <button className="bg-black text-white px-6 rounded-xl font-black uppercase text-xs">Send</button>
+                                </form>
+                            </div>
+                        )}
+                    </main>
+
+                    {(view === 'wall' || view === 'pulse' || view === 'channel-view') && (
+                        <form onSubmit={submitPost} className="post-bar shadow-2xl">
+                            <input value={postContent} onChange={e=>setPostContent(e.target.value)} placeholder="Transmit..." className="flex-1 bg-transparent border-b-2 border-black/20 focus:border-black outline-none handwritten text-xl px-2" />
+                            {user && user.badge_type === 'dev' && view !== 'channel-view' && (
+                                <select className="text-[8px] font-black bg-black/5 p-2 rounded-lg" value={targetChannel} onChange={e=>setTargetChannel(e.target.value)}>
+                                    <option value="text">Board</option>
+                                    <option value="news">Pulse</option>
+                                </select>
+                            )}
+                            <button type="submit" className="bg-black text-white p-4 px-8 rounded-2xl font-black uppercase text-xs">Transmit</button>
+                        </form>
+                    )}
+
+                    {showStore && (
+                        <div className="modal">
+                            <div className="modal-content">
+                                <h2 className="text-2xl font-black mb-8 handwritten text-center underline">Campus Services</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {[
+                                        {id: 'regular', name: 'Standard ID', price: 2000, color: 'zinc', features: ['Permanent Name', 'Unlimited Text', 'Join Nodes']},
+                                        {id: 'verified', name: 'Verified UG', price: 10000, color: 'blue', features: ['Images', 'Blueprint Theme', 'Priority']},
+                                        {id: 'gold', name: 'Gold Elite', price: 15000, color: 'yellow', features: ['Video/PDF', 'Terminal Theme', 'Super Priority']}
+                                    ].map(item => (
+                                        <div key={item.id} className={`p-4 border-2 border-${item.color}-500/20 rounded-xl flex flex-col justify-between`}>
+                                            <div>
+                                                <p className="font-black text-sm uppercase mb-2">{item.name}</p>
+                                                <ul className="text-[9px] space-y-1 mb-4 opacity-70">
+                                                    {item.features.map(f => <li key={f}>• {f}</li>)}
+                                                </ul>
+                                            </div>
+                                            <button onClick={() => initiatePay(item.id, item.price)} className={`bg-black text-white p-2 text-[10px] font-bold rounded-lg`}>{item.price}/=</button>
+                                        </div>
+                                    ))}
+                                    <div className="p-4 border-2 border-green-500/20 rounded-xl flex flex-col justify-between">
+                                        <p className="font-bold flex items-center gap-2 text-sm uppercase text-green-600">Dev Team <Badge type="dev" /></p>
+                                        <button onClick={() => {setShowStore(false); setShowDevApp(true);}} className="bg-green-600 text-white p-2 text-[10px] font-bold">Apply Free</button>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowStore(false)} className="mt-8 w-full border-2 border-black p-3 font-black text-xs uppercase">Close</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {showDevApp && (
+                        <div className="modal">
+                            <div className="modal-content">
+                                <h2 className="text-2xl font-black mb-6 handwritten text-center">Dev Application</h2>
+                                <form onSubmit={submitDevApp} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <input type="text" placeholder="Country of Residence" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setDevAppData({...devAppData, country: e.target.value})} />
+                                    <input type="text" placeholder="Trusted Node 1 Handle" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setDevAppData({...devAppData, trusted_1: e.target.value})} />
+                                    <input type="text" placeholder="Trusted Node 2 Handle" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setDevAppData({...devAppData, trusted_2: e.target.value})} />
+                                    <input type="text" placeholder="Desired Role" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setDevAppData({...devAppData, role: e.target.value})} />
+                                    <input type="number" placeholder="Salary Expectation (UGX)" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setDevAppData({...devAppData, salary: e.target.value})} />
+                                    <input type="text" placeholder="Years Experience" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setDevAppData({...devAppData, experience: e.target.value})} />
+                                    <select className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setDevAppData({...devAppData, marital: e.target.value})}>
+                                        <option value="single">Single</option>
+                                        <option value="married">Married</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-black uppercase mb-2">Upload Cert/Diploma (PDF)</label>
+                                        <input type="file" id="cert-pdf" accept=".pdf" required className="w-full text-sm" />
+                                    </div>
+                                    <textarea placeholder="Suggestions for the Dev Team" className="bg-transparent border-b border-black p-2 text-sm outline-none md:col-span-2 h-24" onChange={e=>setDevAppData({...devAppData, suggestions: e.target.value})}></textarea>
+                                    <button type="submit" className="md:col-span-2 bg-black text-white p-4 font-bold uppercase mt-4">Apply</button>
+                                </form>
+                                <button onClick={() => setShowDevApp(false)} className="mt-4 w-full text-xs underline text-center">Back</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
