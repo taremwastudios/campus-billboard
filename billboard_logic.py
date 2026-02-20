@@ -113,6 +113,15 @@ class BillboardManager:
         conn.close()
         return dict(res) if res else None
 
+    def get_user_by_email(self, email):
+        conn = self.get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if self.database_url else conn.cursor()
+        cur.execute("SELECT * FROM users WHERE email = %s" if self.database_url else "SELECT * FROM users WHERE email = ?", (email,))
+        res = cur.fetchone()
+        cur.close()
+        conn.close()
+        return dict(res) if res else None
+
     def create_user(self, username, password, email, phone, full_names, home_address):
         code = str(random.randint(1000000, 9999999))
         hashed_pw = self.hash_password(password)
