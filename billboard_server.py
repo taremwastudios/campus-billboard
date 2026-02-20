@@ -135,12 +135,22 @@ async def update_profile(user_id: int = Form(...), bio: Optional[str] = Form(Non
 
 @app.post("/post")
 async def create_post(user_id: int = Form(...), content: str = Form(...), post_type: str = Form(...), channel_id: Optional[int] = Form(None), media: Optional[UploadFile] = File(None)):
-    if not db.is_email_verified(user_id):
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    
+    if not user.get('is_email_verified'):
         raise HTTPException(status_code=403, detail="Email not verified.")
+
+    if user.get('is_muted'):
+        raise HTTPException(status_code=403, detail="Your transmission rights are currently suspended (Muted).")
 
     media_url = None
     media_type = None
     if media:
+        if user.get('badge_type') == 'none' or not user.get('badge_type'):
+            raise HTTPException(status_code=403, detail="Multimedia attachments (📎) require a Verified or higher tier. Visit The Store to upgrade.")
+            
         upload_dir = "uploads"
         os.makedirs(upload_dir, exist_ok=True)
         ext = mimetypes.guess_extension(media.content_type) or ".bin"

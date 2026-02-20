@@ -113,6 +113,15 @@ class BillboardManager:
         conn.close()
         return dict(res) if res else None
 
+    def get_user_by_id(self, user_id):
+        conn = self.get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if self.database_url else conn.cursor()
+        cur.execute("SELECT * FROM users WHERE id = %s" if self.database_url else "SELECT * FROM users WHERE id = ?", (user_id,))
+        res = cur.fetchone()
+        cur.close()
+        conn.close()
+        return dict(res) if res else None
+
     def get_user_by_email(self, email):
         conn = self.get_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if self.database_url else conn.cursor()
