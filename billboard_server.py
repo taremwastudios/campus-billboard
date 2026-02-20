@@ -21,6 +21,12 @@ class VerifyEmailBody(BaseModel):
 # Initialize FastAPI
 app = FastAPI()
 
+# --- SELF-HEALING DIRECTORIES ---
+for d in ["static", "uploads", "uploads/dev_certs"]:
+    if not os.path.exists(d):
+        os.makedirs(d)
+        print(f"[System] Created missing directory: {d}")
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
