@@ -17,15 +17,19 @@ class BillboardManager:
         self.init_db()
 
     def get_connection(self):
-        if self.database_url:
-            # Use PostgreSQL if URL is provided (Production)
-            conn = psycopg2.connect(self.database_url)
-            return conn
-        else:
-            # Use SQLite (Local Development)
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            return conn
+        try:
+            if self.database_url:
+                # Use PostgreSQL if URL is provided (Production)
+                conn = psycopg2.connect(self.database_url)
+                return conn
+            else:
+                # Use SQLite (Local Development)
+                conn = sqlite3.connect(self.db_path)
+                conn.row_factory = sqlite3.Row
+                return conn
+        except Exception as e:
+            print(f"[Database] Connection Error: {e}")
+            return None
 
     def hash_password(self, password):
         return hashlib.sha256(password.encode()).hexdigest()
