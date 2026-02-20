@@ -236,29 +236,30 @@
             }, [API_URL]); // Dependencies for useCallback
 
             const fetchChatList = useCallback(async () => {
+                if (!user) return;
                 try {
-                    const res = await fetch(`${API_URL}/chat-list/${user.id}`);
+                    const res = await fetch(`${API_URL}/get-chats/${user.id}`);
                     setChatList(await res.json());
                 } catch (e) { console.error("Chat list offline:", e); }
-            }, [API_URL, user]); // Dependencies for useCallback
+            }, [API_URL, user]);
 
             const fetchChannels = useCallback(async () => {
                 try {
-                    const res = await fetch(`${API_URL}/channels`);
+                    const res = await fetch(`${API_URL}/get-channels`);
                     setChannels(await res.json());
                 } catch (e) { console.error("Channels offline:", e); }
-            }, [API_URL]); // Dependencies for useCallback
+            }, [API_URL]);
 
-            const fetchAdminData = useCallback(async () => {
+            const fetchProfile = useCallback(async () => {
+                if (!user) return;
                 try {
-                    const res1 = await fetch(`${API_URL}/admin/pending-payments`);
-                    if (res1.ok) setPendingPayments(await res1.json());
-                    const res2 = await fetch(`${API_URL}/admin/pending-devs`);
-                    if (res2.ok) setPendingDevs(await res2.json());
-                    const res3 = await fetch(`${API_URL}/admin/reports`);
-                    if (res3.ok) setPendingReports(await res3.json());
-                } catch (e) { console.error("Admin fetch failed:", e); }
-            }, [API_URL]); // Dependencies for useCallback
+                    const res = await fetch(`${API_URL}/get-user-id/${user.id}`);
+                    if (res.ok) {
+                        const updatedUser = await res.json();
+                        setUser(prev => ({...prev, ...updatedUser}));
+                    }
+                } catch (e) { console.error("Profile sync failed"); }
+            }, [API_URL, user]);
 
 
             // --- REAL-TIME HEARTBEAT (WhatsApp-Style Stable Updates) ---
@@ -267,14 +268,14 @@
 
                 const heartbeat = setInterval(async () => {
                     try {
-                        // Only fetch for current view if it's the main feed or pulse
                         if (view === 'wall') fetchFeed();
                         if (view === 'pulse') fetchNews();
-                        if (view === 'chats') fetchChatList(); // Refresh chat list (not messages)
+                        if (view === 'chats') fetchChatList();
+                        if (view === 'node') fetchProfile(); // Sync profile data (avatar/badge)
                         
                         // Fast Sync for Chats (Active View)
                         if (view === 'private-chat' && currentChatUser) {
-                            const res = await fetch(`${API_URL}/messages/${user.id}/${currentChatUser.id}`);
+                            const res = await fetch(`${API_URL}/get-messages/${user.id}/${currentChatUser.id}`);
                             const msgs = await res.json();
                             if (msgs.length !== chatMessages.length) setChatMessages(msgs);
                         }
@@ -437,7 +438,7 @@
                 setCurrentChatUser(target);
                 setView('private-chat');
                 try {
-                    const res = await fetch(`${API_URL}/messages/${user.id}/${target.id}`);
+                    const res = await fetch(`${API_URL}/get-messages/${user.id}/${target.id}`);
                     setChatMessages(await res.json());
                 } catch (e) { setChatMessages([]); }
             };
@@ -445,25 +446,31 @@
             const sendMessage = async (e) => {
                 e.preventDefault();
                 if (!newMessage.trim()) return;
-                const formData = new FormData();
-                formData.append('sender_id', user.id);
-                formData.append('receiver_id', currentChatUser.id);
-                formData.append('content', newMessage);
-                await fetch(`${API_URL}/send-message`, { method: 'POST', body: formData });
-                setNewMessage("");
-                const res = await fetch(`${API_URL}/messages/${user.id}/${currentChatUser.id}`);
-                setChatMessages(await res.json());
+                try {
+                    await fetch(`${API_URL}/send-message`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sender_id: user.id, receiver_id: currentChatUser.id, content: newMessage })
+                    });
+                    setNewMessage("");
+                    const res = await fetch(`${API_URL}/get-messages/${user.id}/${currentChatUser.id}`);
+                    setChatMessages(await res.json());
+                } catch (e) { console.error("Message send failed"); }
             };
 
             const handleCreateChannel = async (e) => {
                 e.preventDefault();
-                const formData = new FormData();
-                formData.append('owner_id', user.id);
-                formData.append('name', newChannelData.name);
-                formData.append('description', newChannelData.description);
-                formData.append('price', newChannelData.price);
                 try {
-                    const res = await fetch(`${API_URL}/create-channel`, { method: 'POST', body: formData });
+                    const res = await fetch(`${API_URL}/create-channel`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            owner_id: user.id, 
+                            name: newChannelData.name, 
+                            description: newChannelData.description, 
+                            price: parseInt(newChannelData.price) 
+                        }) 
+                    });
                     if (res.ok) {
                         alert("Node Spawned!");
                         setShowCreateChannel(false);
@@ -756,20 +763,28 @@
                     </main>
 
                     {(view === 'wall' || view === 'pulse' || view === 'channel-view') && (
-                        <form onSubmit={submitPost} className="post-bar shadow-2xl">
-                            <label className="cursor-pointer opacity-40 hover:opacity-100 transition-all">
-                                <span className="text-2xl">📎</span>
-                                <input type="file" id="post-attach" className="hidden" accept="image/*,video/*,.pdf" />
-                            </label>
-                            <input value={postContent} onChange={e=>setPostContent(e.target.value)} placeholder="Transmit..." className="flex-1 bg-transparent border-b-2 border-black/20 focus:border-black outline-none handwritten text-xl px-2" />
-                            {user && user.badge_type === 'dev' && view !== 'channel-view' && (
-                                <select className="text-[8px] font-black bg-black/5 p-2 rounded-lg" value={targetChannel} onChange={e=>setTargetChannel(e.target.value)}>
-                                    <option value="text">Board</option>
-                                    <option value="news">Pulse</option>
-                                </select>
-                            )}
-                            <button type="submit" className="bg-black text-white p-4 px-8 rounded-2xl font-black uppercase text-xs">Transmit</button>
-                        </form>
+                        (() => {
+                            // Permission logic:
+                            if (view === 'pulse' && user.badge_type !== 'dev') return <div className="post-bar opacity-50 text-[10px] uppercase font-black justify-center">Read-Only: Dev Transmission Pulse</div>;
+                            if (view === 'channel-view' && selectedChannel && selectedChannel.owner_id !== user.id) return <div className="post-bar opacity-50 text-[10px] uppercase font-black justify-center">Read-Only Node</div>;
+                            
+                            return (
+                                <form onSubmit={submitPost} className="post-bar shadow-2xl">
+                                    <label className="cursor-pointer opacity-40 hover:opacity-100 transition-all">
+                                        <span className="text-2xl">📎</span>
+                                        <input type="file" id="post-attach" className="hidden" accept="image/*,video/*,.pdf" />
+                                    </label>
+                                    <input value={postContent} onChange={e=>setPostContent(e.target.value)} placeholder="Transmit..." className="flex-1 bg-transparent border-b-2 border-black/20 focus:border-black outline-none handwritten text-xl px-2" />
+                                    {user && user.badge_type === 'dev' && view !== 'channel-view' && (
+                                        <select className="text-[8px] font-black bg-black/5 p-2 rounded-lg" value={targetChannel} onChange={e=>setTargetChannel(e.target.value)}>
+                                            <option value="text">Board</option>
+                                            <option value="news">Pulse</option>
+                                        </select>
+                                    )}
+                                    <button type="submit" className="bg-black text-white p-4 px-8 rounded-2xl font-black uppercase text-xs">Transmit</button>
+                                </form>
+                            );
+                        })()
                     )}
 
                 {view === 'store' && (

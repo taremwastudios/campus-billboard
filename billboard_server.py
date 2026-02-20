@@ -117,40 +117,36 @@ async def get_user_profile(username: str):
     if user: return user
     raise HTTPException(status_code=404, detail="User not found.")
 
-@app.post("/update-profile")
-async def update_profile(user_id: int = Form(...), bio: Optional[str] = Form(None), avatar: Optional[UploadFile] = File(None)):
-    avatar_url = None
-    if avatar:
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
-        ext = mimetypes.guess_extension(avatar.content_type) or ".jpg"
-        filename = f"{user_id}_av_{secrets.token_hex(4)}{ext}"
-        file_path = os.path.join(upload_dir, filename)
-        with open(file_path, "wb") as f: f.write(await avatar.read())
-        avatar_url = f"uploads/{filename}"
-
-    if db.update_user_profile(user_id, bio, avatar_url):
-        return {"message": "Profile updated", "avatar_url": avatar_url}
-    raise HTTPException(status_code=500, detail="Update failed.")
+@app.get("/get-user-id/{user_id}")
+async def get_user_profile_id(user_id: int):
+    user = db.get_user_by_id(user_id)
+    if user: return user
+    raise HTTPException(status_code=404, detail="User not found.")
 
 @app.post("/post")
 async def create_post(user_id: int = Form(...), content: str = Form(...), post_type: str = Form(...), channel_id: Optional[int] = Form(None), media: Optional[UploadFile] = File(None)):
     user = db.get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-    
-    if not user.get('is_email_verified'):
-        raise HTTPException(status_code=403, detail="Email not verified.")
+    if not user: raise HTTPException(status_code=404, detail="User not found.")
+    if not user.get('is_email_verified'): raise HTTPException(status_code=403, detail="Email not verified.")
+    if user.get('is_muted'): raise HTTPException(status_code=403, detail="Muted.")
 
-    if user.get('is_muted'):
-        raise HTTPException(status_code=403, detail="Your transmission rights are currently suspended (Muted).")
+    # PERMISSION CHECK: Pulse (News) is DEV ONLY
+    if post_type == 'news' and user.get('badge_type') != 'dev':
+        raise HTTPException(status_code=403, detail="Only Developers can transmit to Campus Pulse.")
+
+    # PERMISSION CHECK: Channels/Nodes are OWNER ONLY
+    if channel_id:
+        # We need a get_channel_by_id in billboard_logic, adding logic here
+        channels = db.get_channels()
+        channel = next((c for c in channels if c['id'] == channel_id), None)
+        if channel and channel['owner_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Only the Node creator can transmit in this channel.")
 
     media_url = None
     media_type = None
     if media:
         if user.get('badge_type') == 'none' or not user.get('badge_type'):
-            raise HTTPException(status_code=403, detail="Multimedia attachments (📎) require a Verified or higher tier. Visit The Store to upgrade.")
-            
+            raise HTTPException(status_code=403, detail="Multimedia requires Verified status.")
         upload_dir = "uploads"
         os.makedirs(upload_dir, exist_ok=True)
         ext = mimetypes.guess_extension(media.content_type) or ".bin"
@@ -160,8 +156,30 @@ async def create_post(user_id: int = Form(...), content: str = Form(...), post_t
         media_url = f"uploads/{filename}"
         media_type = media.content_type.split('/')[0]
 
-    post_id = db.create_post(user_id, content, post_type, channel_id, media_url, media_type)
-    return {"message": "Post created", "post_id": post_id}
+    db.create_post(user_id, content, post_type, channel_id, media_url, media_type)
+    return {"message": "Success"}
+
+@app.get("/get-channels")
+async def get_channels_api():
+    return db.get_channels()
+
+@app.post("/create-channel")
+async def create_channel_api(data: ChannelCreate):
+    cid = db.create_channel(data.owner_id, data.name, data.description, data.price)
+    return {"channel_id": cid}
+
+@app.get("/get-chats/{user_id}")
+async def get_chats_api(user_id: int):
+    return db.get_chats(user_id)
+
+@app.get("/get-messages/{user1}/{user2}")
+async def get_messages_api(user1: int, user2: int):
+    return db.get_messages(user1, user2)
+
+@app.post("/send-message")
+async def send_message_api(data: MessageData):
+    db.send_message(data.sender_id, data.receiver_id, data.content)
+    return {"message": "Sent"}
 
 @app.get("/feed")
 async def get_feed_api(limit: int = 100, after_id: int = Query(0)):
