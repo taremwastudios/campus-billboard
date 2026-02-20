@@ -417,3 +417,81 @@ class BillboardManager:
     def get_total_users(self): return 100 
     def get_total_posts(self): return 500 
     def get_total_channels(self): return 10 
+
+    # --- ADMIN & MODERATION ---
+    def create_dev_application(self, user_id, details, cert_url):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        sql = "CREATE TABLE IF NOT EXISTS dev_applications (id SERIAL PRIMARY KEY, user_id INTEGER, details TEXT, cert_url TEXT, status TEXT DEFAULT 'pending')"
+        cur.execute(sql)
+        ins = "INSERT INTO dev_applications (user_id, details, cert_url) VALUES (%s, %s, %s)" if self.database_url else "INSERT INTO dev_applications (user_id, details, cert_url) VALUES (?, ?, ?)"
+        cur.execute(ins, (user_id, details, cert_url))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+
+    def get_pending_dev_applications(self):
+        conn = self.get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if self.database_url else conn.cursor()
+        cur.execute("SELECT * FROM dev_applications WHERE status = 'pending'")
+        res = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return res
+
+    def approve_dev_application(self, app_id):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        # Get user_id first
+        cur.execute("SELECT user_id FROM dev_applications WHERE id = %s" if self.database_url else "SELECT user_id FROM dev_applications WHERE id = ?", (app_id,))
+        uid = cur.fetchone()[0]
+        # Update app status
+        cur.execute("UPDATE dev_applications SET status = 'approved' WHERE id = %s" if self.database_url else "UPDATE dev_applications SET status = 'approved' WHERE id = ?", (app_id,))
+        # Update user badge
+        cur.execute("UPDATE users SET badge_type = 'dev' WHERE id = %s" if self.database_url else "UPDATE users SET badge_type = ? WHERE id = ?", (uid,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+
+    def delete_post(self, post_id):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        sql = "UPDATE posts SET is_deleted = 1 WHERE id = %s" if self.database_url else "UPDATE posts SET is_deleted = 1 WHERE id = ?"
+        cur.execute(sql, (post_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+
+    def mute_user(self, username):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        sql = "UPDATE users SET is_muted = 1 WHERE username = %s" if self.database_url else "UPDATE users SET is_muted = ? WHERE username = ?"
+        cur.execute(sql, (username,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+
+    def report_post(self, post_id, user_id):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        sql = "CREATE TABLE IF NOT EXISTS reports (id SERIAL PRIMARY KEY, post_id INTEGER, user_id INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+        cur.execute(sql)
+        ins = "INSERT INTO reports (post_id, user_id) VALUES (%s, %s)" if self.database_url else "INSERT INTO reports (post_id, user_id) VALUES (?, ?)"
+        cur.execute(ins, (post_id, user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+
+    def get_all_reports(self):
+        conn = self.get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if self.database_url else conn.cursor()
+        cur.execute("SELECT * FROM reports ORDER BY created_at DESC")
+        res = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return res

@@ -47,7 +47,7 @@ db = BillboardManager("studio_billboard.db")
 logging.basicConfig(level=logging.INFO, filename='billboard.log',
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-class MessageCreate(BaseModel):
+class MessageData(BaseModel):
     sender_id: int
     receiver_id: int
     content: str
