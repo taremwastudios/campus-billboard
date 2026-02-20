@@ -412,6 +412,37 @@ class BillboardManager:
         conn.close()
         return True
 
+    def get_pending_simulated_payments(self):
+        conn = self.get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if self.database_url else conn.cursor()
+        cur.execute("SELECT * FROM payments WHERE status = 'pending'")
+        res = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return res
+
+    def is_channel_member(self, user_id, channel_id):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        sql = "SELECT user_id FROM channel_memberships WHERE user_id = %s AND channel_id = %s" if self.database_url else "SELECT user_id FROM channel_memberships WHERE user_id = ? AND channel_id = ?"
+        cur.execute(sql, (user_id, channel_id))
+        res = cur.fetchone()
+        cur.close()
+        conn.close()
+        return res is not None
+
+    def add_channel_member(self, channel_id, user_id):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        sql = "INSERT INTO channel_memberships (user_id, channel_id) VALUES (%s, %s)" if self.database_url else "INSERT INTO channel_memberships (user_id, channel_id) VALUES (?, ?)"
+        try:
+            cur.execute(sql, (user_id, channel_id))
+            conn.commit()
+        except: pass # Already a member
+        cur.close()
+        conn.close()
+        return True
+
     # Mock stats for Dashboard
     def get_online_users(self): return random.randint(5, 15)
     def get_total_users(self): return 100 
