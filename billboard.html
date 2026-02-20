@@ -70,9 +70,15 @@
         const { useState, useEffect, useRef, useCallback } = React;
 
         const Badge = ({ type }) => {
-            if (type === 'verified') return <span className="status-box box-verified">Verified <span className="badge-twitter"></span></span>;
-            if (type === 'gold') return <span className="status-box box-gold">Gold Elite <span className="badge-twitter"></span></span>;
-            if (type === 'dev') return <span className="status-box box-dev">Dev Team</span>;
+            const tickIcon = (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 inline-block ml-1">
+                    <path d="M22.5 12.5c0-1.58-.88-2.95-2.18-3.65.54-1.53.43-3.26-.46-4.55-1.28-1.28-3.02-1.39-4.55-.46-.7-.88-2.07-2.18-3.65-2.18S8.7 2.45 8 3.32c-1.53-.46-3.27-.35-4.55.46-1.28 1.28-1.39 3.02-.46 4.55-.88.7-2.18 2.07-2.18 3.65s1.3 2.95 2.18 3.65c-.46 1.53-.35 3.27.46 4.55 1.28 1.28 3.02 1.39 4.55.46.7.88 2.07 2.18 3.65 2.18s2.95-1.3 3.65-2.18c1.53.46 3.27.35 4.55-.46 1.28-1.28 1.39-3.02.46-4.55.88-.7 2.18-2.07 2.18-3.65zM10 17l-4-4 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            );
+
+            if (type === 'verified') return <span className="status-box box-verified" style={{background: 'linear-gradient(45deg, #000, #FCD116, #CE1126)', color: 'white', border: 'none'}}>Verified {tickIcon}</span>;
+            if (type === 'gold') return <span className="status-box box-gold">Gold Elite {tickIcon}</span>;
+            if (type === 'dev') return <span className="status-box box-dev" style={{boxShadow: '0 0 15px rgba(34, 197, 94, 0.4)', color: '#16a34a', borderColor: '#86efac'}}>Dev Team {tickIcon}</span>;
             return null;
         };
 
@@ -540,13 +546,23 @@
 
             const submitDevApp = async (e) => {
                 e.preventDefault();
+                
+                if (!confirm("A $1.00 (approx 3,800 UGX) processing fee is required for Developer Applications. Continue to payment?")) return;
+
                 const formData = new FormData();
                 formData.append('user_id', user.id);
                 formData.append('details', JSON.stringify(devAppData));
                 const fileInput = document.getElementById('cert-pdf');
                 if (fileInput.files[0]) formData.append('cert_pdf', fileInput.files[0]);
-                await fetch(`${API_URL}/apply-dev`, { method: 'POST', body: formData });
-                alert("Submitted"); setShowDevApp(false);
+                
+                try {
+                    await fetch(`${API_URL}/apply-dev`, { method: 'POST', body: formData });
+                    setShowDevApp(false);
+                    // Trigger the payment bridge for the $1.00 fee
+                    initiatePayment('Dev-App-Fee', 1.00);
+                } catch (err) {
+                    alert("Submission failed. Please try again.");
+                }
             };
 
             if (!user) {
@@ -780,41 +796,41 @@
                             {/* Verified Tier */}
                             <div className="bg-blue-50 border-2 border-blue-500 p-8 rounded-3xl flex flex-col relative hover:scale-105 transition-transform">
                                 <div className="absolute top-4 right-4 bg-blue-500 text-white text-[10px] px-2 py-1 rounded-full font-bold">POPULAR</div>
-                                <h2 className="text-2xl font-bold mb-2 text-blue-600">VERIFIED</h2>
+                                <h2 className="text-2xl font-bold mb-2 text-blue-600 flex items-center gap-2">VERIFIED <Badge type="verified" /></h2>
                                 <div className="text-4xl font-black mb-6 text-blue-900">$1.99 <span className="text-sm opacity-50">/mo</span></div>
                                 <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-blue-800">
-                                    <li>✓ Blue Verification Box</li>
+                                    <li>✓ Blue Status Identity</li>
                                     <li>✓ 2x Transmission Visibility</li>
-                                    <li>✓ 📎 Multimedia Attachments</li>
-                                    <li>✓ Priority Discovery</li>
+                                    <li>✓ Multimedia Attachments (📎)</li>
+                                    <li>✓ Unique Identity Lock</li>
                                 </ul>
                                 <button onClick={()=>initiatePayment('Verified', 1.99)} className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-colors">Upgrade Now</button>
                             </div>
 
                             {/* Gold Tier */}
                             <div className="bg-yellow-50 border-2 border-yellow-600 p-8 rounded-3xl flex flex-col hover:scale-105 transition-transform">
-                                <h2 className="text-2xl font-bold mb-2 text-yellow-700">GOLD</h2>
+                                <h2 className="text-2xl font-bold mb-2 text-yellow-700 flex items-center gap-2">GOLD <Badge type="gold" /></h2>
                                 <div className="text-4xl font-black mb-6 text-yellow-900">$4.99 <span className="text-sm opacity-50">/mo</span></div>
                                 <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-yellow-800">
                                     <li>✓ Gold Elite Pin status</li>
                                     <li>✓ 5x Viral Feed Priority</li>
                                     <li>✓ Spawn Private Nodes (Channels)</li>
-                                    <li>✓ Revenue Share on Entry Fees</li>
+                                    <li>✓ Commission on Entry Fees</li>
                                 </ul>
                                 <button onClick={()=>initiatePayment('Gold', 4.99)} className="w-full bg-yellow-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-yellow-700 transition-colors">Go Gold</button>
                             </div>
 
                             {/* Dev Tier */}
-                            <div className="bg-red-50 border-2 border-red-600 p-8 rounded-3xl flex flex-col hover:scale-105 transition-transform">
-                                <h2 className="text-2xl font-bold mb-2 text-red-600">DEVELOPER</h2>
-                                <div className="text-4xl font-black mb-6 text-red-900">$19.99 <span className="text-sm opacity-50">/mo</span></div>
-                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-red-800">
-                                    <li>✓ Red "DEV" Ink Stamp</li>
-                                    <li>✓ Moderation & Mute Tools</li>
-                                    <li>✓ Custom Code Access</li>
-                                    <li>✓ Identity Verification Portal</li>
+                            <div className="bg-green-50 border-2 border-green-500 p-8 rounded-3xl flex flex-col hover:scale-105 transition-transform shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+                                <h2 className="text-2xl font-bold mb-2 text-green-700 flex items-center gap-2">DEVELOPER <Badge type="dev" /></h2>
+                                <div className="text-4xl font-black mb-6 text-green-900">$1.00 <span className="text-sm opacity-50">/app fee</span></div>
+                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-green-800">
+                                    <li>✓ Neon Green "DEV" Identity</li>
+                                    <li>✓ System Moderation Tools</li>
+                                    <li>✓ Custom Terminal Commands</li>
+                                    <li>✓ Official Partnership Status</li>
                                 </ul>
-                                <button onClick={()=>initiatePayment('Dev', 19.99)} className="w-full bg-red-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-red-700 transition-colors">Apply for Dev</button>
+                                <button onClick={() => {setShowStore(false); setShowDevApp(true);}} className="w-full bg-green-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-colors">Apply for Dev</button>
                             </div>
                         </div>
 
