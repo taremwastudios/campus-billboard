@@ -319,6 +319,17 @@
 
             const handleRegister = async (e) => {
                 e.preventDefault();
+                
+                // --- IDENTITY MATCH VALIDATION ---
+                const emailPrefix = regData.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+                const cleanUsername = regData.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+                
+                // Allow if username is part of email or vice versa (fuzzy match)
+                if (!emailPrefix.includes(cleanUsername) && !cleanUsername.includes(emailPrefix)) {
+                    alert("IDENTITY MISMATCH: Your Preferred Username must be derived from your email address (e.g. if your email is jdoe@... your username must be related to 'jdoe'). This helps us verify students.");
+                    return;
+                }
+
                 try {
                     const res = await fetch(`${API_URL}/register`, {
                         method: 'POST',
@@ -550,14 +561,32 @@
                             <h2 className="text-2xl font-black mb-6 handwritten text-center">Identity Registration</h2>
                             <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <input type="text" placeholder="Full Names" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, full_names: e.target.value})} />
-                                <input type="text" placeholder="Username" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, username: e.target.value})} />
-                                <input type="email" placeholder="Email" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, email: e.target.value})} />
-                                <input type="tel" placeholder="Phone" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, phone: e.target.value})} />
-                                <input type="text" placeholder="Home Address" required className="bg-transparent border-b border-black p-2 text-sm md:col-span-2 outline-none" onChange={e=>setRegData({...regData, home_address: e.target.value})} />
-                                <input type="password" placeholder="Passkey" required className="bg-transparent border-b border-black p-2 text-sm md:col-span-2 outline-none" onChange={e=>setRegData({...regData, password: e.target.value})} />
-                                <button className="md:col-span-2 bg-black text-white p-4 font-bold uppercase mt-4">Initialize</button>
+                                <input type="text" placeholder="Preferred Username" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, username: e.target.value})} />
+                                <input type="email" placeholder="University Email" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, email: e.target.value})} />
+                                <input type="tel" placeholder="Active MoMo Number (256...)" required className="bg-transparent border-b border-black p-2 text-sm outline-none" onChange={e=>setRegData({...regData, phone: e.target.value})} />
+                                
+                                <select required className="bg-transparent border-b border-black p-2 text-sm md:col-span-2 outline-none" onChange={e=>setRegData({...regData, home_address: e.target.value})}>
+                                    <option value="">Select Primary Campus</option>
+                                    <option value="Makerere University">Makerere University (MUK)</option>
+                                    <option value="MUBS">Makerere Business School (MUBS)</option>
+                                    <option value="Kyambogo University">Kyambogo University (KYU)</option>
+                                    <option value="Mbarara University">Mbarara University (MUST)</option>
+                                    <option value="Uganda Christian University">Uganda Christian University (UCU)</option>
+                                    <option value="Uganda Martyrs University">Uganda Martyrs (UMU)</option>
+                                    <option value="Busitema University">Busitema University</option>
+                                    <option value="Gulu University">Gulu University</option>
+                                    <option value="Cavendish University">Cavendish University</option>
+                                    <option value="KIU">Kampala International University (KIU)</option>
+                                    <option value="Other">Other / International</option>
+                                </select>
+
+                                <input type="password" placeholder="Secure Passkey" required className="bg-transparent border-b border-black p-2 text-sm md:col-span-2 outline-none" onChange={e=>setRegData({...regData, password: e.target.value})} />
+                                <div className="md:col-span-2 text-[8px] opacity-50 uppercase mt-2">
+                                    Note: Your username must match part of your email prefix for identity verification.
+                                </div>
+                                <button className="md:col-span-2 bg-black text-white p-4 font-bold uppercase mt-4">Initialize Identity</button>
                             </form>
-                            <button onClick={() => setAuthStep('login')} className="mt-4 w-full text-xs underline text-center">Back</button>
+                            <button onClick={() => setAuthStep('login')} className="mt-4 w-full text-xs underline text-center">Return to Login</button>
                         </div>
                     </div>
                 );
