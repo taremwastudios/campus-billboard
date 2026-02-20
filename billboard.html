@@ -38,13 +38,14 @@
         .pin-regular { background-color: #8d6e63; }
         .pin-dev { background-color: #4caf50; }
         .badge-twitter {
-            display: inline-flex; width: 16px; height: 16px;
+            display: inline-flex; width: 14px; height: 14px;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M22.5 12.5c0-1.58-.88-2.95-2.18-3.65.54-1.53.43-3.26-.46-4.55-1.28-1.28-3.02-1.39-4.55-.46-.7-.88-2.07-2.18-3.65-2.18S8.7 2.45 8 3.32c-1.53-.46-3.27-.35-4.55.46-1.28 1.28-1.39 3.02-.46 4.55-.88.7-2.18 2.07-2.18 3.65s1.3 2.95 2.18 3.65c-.46 1.53-.35 3.27.46 4.55 1.28 1.28 3.02 1.39 4.55.46.7.88 2.07 2.18 3.65 2.18s2.95-1.3 3.65-2.18c1.53.46 3.27.35 4.55-.46 1.28-1.28 1.39-3.02.46-4.55.88-.7 2.18-2.07 2.18-3.65z'/%3E%3C/svg%3E") no-repeat center;
-            background-color: currentColor; margin-left: 4px;
+            background-color: currentColor; margin-left: 2px;
         }
-        .badge-ug { color: #FCD116; background: linear-gradient(45deg, #000, #FCD116, #CE1126); }
-        .badge-gold { background: linear-gradient(45deg, #d4af37, #f9d71c); }
-        .badge-dev { background-color: #4caf50; }
+        .status-box { font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .box-verified { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+        .box-gold { background: #fefce8; color: #854d0e; border: 1px solid #fef08a; box-shadow: 0 0 10px rgba(254, 240, 138, 0.5); }
+        .box-dev { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; font-family: monospace; }
         .modal { background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
         .modal-content { background: var(--paper-bg); color: var(--text-color); border: 4px solid var(--board-bg); padding: 40px; border-radius: 10px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; }
         .post-bar {
@@ -69,9 +70,9 @@
         const { useState, useEffect, useRef, useCallback } = React;
 
         const Badge = ({ type }) => {
-            if (type === 'verified') return <span className="badge-twitter badge-ug" title="Verified UG"></span>;
-            if (type === 'gold') return <span className="badge-twitter badge-gold" title="Gold Elite"></span>;
-            if (type === 'dev') return <span className="badge-twitter badge-dev" title="Dev Team"></span>;
+            if (type === 'verified') return <span className="status-box box-verified">Verified <span className="badge-twitter"></span></span>;
+            if (type === 'gold') return <span className="status-box box-gold">Gold Elite <span className="badge-twitter"></span></span>;
+            if (type === 'dev') return <span className="status-box box-dev">Dev Team</span>;
             return null;
         };
 
@@ -488,31 +489,36 @@
                 fetchChannels();
             };
 
-            const initiatePay = async (itemId, amount) => {
+            const initiatePayment = async (itemId, usdAmount) => {
+                const ugxRate = 3800; // Estimated UGX per 1 USD
+                const ugxAmount = Math.round(usdAmount * ugxRate);
+                const formattedUgx = new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX' }).format(ugxAmount);
+
+                if (!confirm(`Confirm Purchase: ${itemId} ($${usdAmount})\n\nThis will cost approximately ${formattedUgx}.\nProceed to manual payment verification?`)) return;
+
                 const res = await fetch(`${API_URL}/initiate-payment`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: user.id, item_id: itemId, amount: amount })
+                    body: JSON.stringify({ user_id: user.id, item_id: itemId, amount: ugxAmount })
                 });
                 const data = await res.json();
-                setPendingPayId({ id: data.payment_id, item: itemId });
+                setPendingPayId({ id: data.payment_id, item: itemId, amount: formattedUgx });
             };
 
             const confirmPay = async () => {
-                const pin = document.getElementById('sim-pin').value;
-                if (!pin || pin.length < 4) { alert("Enter 4-digit PIN"); return; }
+                const txId = document.getElementById('tx-id').value;
+                if (!txId || txId.length < 6) { alert("Enter a valid Transaction ID"); return; }
                 try {
                     const res = await fetch(`${API_URL}/simulated-payment/confirm`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ payment_id: pendingPayId.id, test_code: pin })
+                        body: JSON.stringify({ payment_id: pendingPayId.id, test_code: txId })
                     });
                     if (res.ok) { 
-                        alert("Promoted!"); 
+                        alert("Submission Received! Our team will verify your transaction ID shortly. Your status will update once confirmed."); 
                         setPendingPayId(null);
-                        fetch(`${API_URL}/get-user/${user.username}`).then(r => r.json()).then(u => setUser(p => ({...p, ...u})));
-                    } else alert("Failed");
-                } catch (e) { alert("Error"); }
+                    } else alert("Verification Failed. Please check your Transaction ID.");
+                } catch (e) { alert("Submission Error"); }
             };
 
             const handleLogoClick = () => {
@@ -618,7 +624,7 @@
                             <button onClick={() => { setView('chats'); fetchChatList(); }} className={view === 'chats' ? 'underline' : ''}>
                                 Chats{unreads.chats > 0 && <span className="power-tag">{unreads.chats}</span>}
                             </button>
-                            <button onClick={() => setShowStore(true)}>The Store</button>
+                            <button onClick={() => setView('store')} className={view === 'store' ? 'underline' : ''}>The Store</button>
                             <button onClick={() => setView('node')} className={view === 'node' ? 'underline' : ''}>Profile</button>
                         </div>
                     </header>
@@ -750,35 +756,90 @@
                         </form>
                     )}
 
-                    {showStore && (
-                        <div className="modal">
-                            <div className="modal-content">
-                                <h2 className="text-2xl font-black mb-8 handwritten text-center underline">Campus Services</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {[
-                                        {id: 'regular', name: 'Standard ID', price: 2000, color: 'zinc', features: ['Permanent Name', 'Unlimited Text', 'Join Nodes']},
-                                        {id: 'verified', name: 'Verified UG', price: 10000, color: 'blue', features: ['Images', 'Blueprint Theme', 'Priority']},
-                                        {id: 'gold', name: 'Gold Elite', price: 15000, color: 'yellow', features: ['Video/PDF', 'Terminal Theme', 'Super Priority']}
-                                    ].map(item => (
-                                        <div key={item.id} className={`p-4 border-2 border-${item.color}-500/20 rounded-xl flex flex-col justify-between`}>
-                                            <div>
-                                                <p className="font-black text-sm uppercase mb-2">{item.name}</p>
-                                                <ul className="text-[9px] space-y-1 mb-4 opacity-70">
-                                                    {item.features.map(f => <li key={f}>• {f}</li>)}
-                                                </ul>
-                                            </div>
-                                            <button onClick={() => initiatePay(item.id, item.price)} className={`bg-black text-white p-2 text-[10px] font-bold rounded-lg`}>{item.price}/=</button>
-                                        </div>
-                                    ))}
-                                    <div className="p-4 border-2 border-green-500/20 rounded-xl flex flex-col justify-between">
-                                        <p className="font-bold flex items-center gap-2 text-sm uppercase text-green-600">Dev Team <Badge type="dev" /></p>
-                                        <button onClick={() => {setShowStore(false); setShowDevApp(true);}} className="bg-green-600 text-white p-2 text-[10px] font-bold">Apply Free</button>
-                                    </div>
-                                </div>
-                                <button onClick={() => setShowStore(false)} className="mt-8 w-full border-2 border-black p-3 font-black text-xs uppercase">Close</button>
+                {view === 'store' && (
+                    <div className="max-w-6xl mx-auto p-6 animate-in fade-in duration-500">
+                        <header className="text-center mb-12">
+                            <h1 className="text-5xl font-black uppercase mb-4">Transmission Tiers</h1>
+                            <p className="opacity-60 max-w-2xl mx-auto text-lg">Choose your level of influence on the board. All prices in USD. Conversion to UGX happens at checkout.</p>
+                        </header>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {/* Regular Tier */}
+                            <div className="bg-white/50 border-2 border-black p-8 rounded-3xl flex flex-col hover:scale-105 transition-transform">
+                                <h2 className="text-2xl font-bold mb-2">REGULAR</h2>
+                                <div className="text-4xl font-black mb-6">$0 <span className="text-sm opacity-50">/forever</span></div>
+                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80">
+                                    <li>✓ Unlimited Text Transmissions</li>
+                                    <li>✓ Standard Feed Priority</li>
+                                    <li>✓ Access to Public Nodes</li>
+                                    <li>✓ Basic Retro Theme</li>
+                                </ul>
+                                <button className="w-full bg-black/10 p-4 rounded-xl font-bold opacity-50 cursor-not-allowed">Active by Default</button>
+                            </div>
+
+                            {/* Verified Tier */}
+                            <div className="bg-blue-50 border-2 border-blue-500 p-8 rounded-3xl flex flex-col relative hover:scale-105 transition-transform">
+                                <div className="absolute top-4 right-4 bg-blue-500 text-white text-[10px] px-2 py-1 rounded-full font-bold">POPULAR</div>
+                                <h2 className="text-2xl font-bold mb-2 text-blue-600">VERIFIED</h2>
+                                <div className="text-4xl font-black mb-6 text-blue-900">$1.99 <span className="text-sm opacity-50">/mo</span></div>
+                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-blue-800">
+                                    <li>✓ Blue Verification Box</li>
+                                    <li>✓ 2x Transmission Visibility</li>
+                                    <li>✓ 📎 Multimedia Attachments</li>
+                                    <li>✓ Priority Discovery</li>
+                                </ul>
+                                <button onClick={()=>initiatePayment('Verified', 1.99)} className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-colors">Upgrade Now</button>
+                            </div>
+
+                            {/* Gold Tier */}
+                            <div className="bg-yellow-50 border-2 border-yellow-600 p-8 rounded-3xl flex flex-col hover:scale-105 transition-transform">
+                                <h2 className="text-2xl font-bold mb-2 text-yellow-700">GOLD</h2>
+                                <div className="text-4xl font-black mb-6 text-yellow-900">$4.99 <span className="text-sm opacity-50">/mo</span></div>
+                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-yellow-800">
+                                    <li>✓ Gold Elite Pin status</li>
+                                    <li>✓ 5x Viral Feed Priority</li>
+                                    <li>✓ Spawn Private Nodes (Channels)</li>
+                                    <li>✓ Revenue Share on Entry Fees</li>
+                                </ul>
+                                <button onClick={()=>initiatePayment('Gold', 4.99)} className="w-full bg-yellow-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-yellow-700 transition-colors">Go Gold</button>
+                            </div>
+
+                            {/* Dev Tier */}
+                            <div className="bg-red-50 border-2 border-red-600 p-8 rounded-3xl flex flex-col hover:scale-105 transition-transform">
+                                <h2 className="text-2xl font-bold mb-2 text-red-600">DEVELOPER</h2>
+                                <div className="text-4xl font-black mb-6 text-red-900">$19.99 <span className="text-sm opacity-50">/mo</span></div>
+                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-red-800">
+                                    <li>✓ Red "DEV" Ink Stamp</li>
+                                    <li>✓ Moderation & Mute Tools</li>
+                                    <li>✓ Custom Code Access</li>
+                                    <li>✓ Identity Verification Portal</li>
+                                </ul>
+                                <button onClick={()=>initiatePayment('Dev', 19.99)} className="w-full bg-red-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-red-700 transition-colors">Apply for Dev</button>
                             </div>
                         </div>
-                    )}
+
+                        {pendingPayId && (
+                            <div className="modal">
+                                <div className="modal-content text-center">
+                                    <h2 className="text-2xl font-black mb-4 uppercase">Verify Transaction</h2>
+                                    <p className="text-sm opacity-60 mb-8">
+                                        Please send <b>{pendingPayId.amount}</b> to our official MoMo/Airtel number. 
+                                        Once sent, enter the Transaction ID below for verification.
+                                    </p>
+                                    <input id="tx-id" type="text" placeholder="Transaction ID (e.g. 192837465)" className="w-full border-2 border-black p-4 rounded-xl mb-4 font-black text-center" />
+                                    <div className="flex gap-4">
+                                        <button onClick={() => setPendingPayId(null)} className="flex-1 border-2 border-black p-3 font-bold">Cancel</button>
+                                        <button onClick={confirmPay} className="flex-1 bg-black text-white p-3 font-bold">Submit ID</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <footer className="mt-12 text-center text-[10px] opacity-40 max-w-md mx-auto">
+                            All transactions are processed via secure Ugandan payment gateways. By purchasing, you agree to the Campus Billboard conduct policy.
+                        </footer>
+                    </div>
+                )}
 
                     {showDevApp && (
                         <div className="modal">
