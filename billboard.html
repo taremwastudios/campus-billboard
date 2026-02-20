@@ -706,6 +706,10 @@
 
                     {(view === 'wall' || view === 'pulse' || view === 'channel-view') && (
                         <form onSubmit={submitPost} className="post-bar shadow-2xl">
+                            <label className="cursor-pointer opacity-40 hover:opacity-100 transition-all">
+                                <span className="text-2xl">📎</span>
+                                <input type="file" id="post-attach" className="hidden" accept="image/*,video/*,.pdf" />
+                            </label>
                             <input value={postContent} onChange={e=>setPostContent(e.target.value)} placeholder="Transmit..." className="flex-1 bg-transparent border-b-2 border-black/20 focus:border-black outline-none handwritten text-xl px-2" />
                             {user && user.badge_type === 'dev' && view !== 'channel-view' && (
                                 <select className="text-[8px] font-black bg-black/5 p-2 rounded-lg" value={targetChannel} onChange={e=>setTargetChannel(e.target.value)}>
