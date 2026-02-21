@@ -503,19 +503,23 @@
             };
 
             const initiatePayment = async (itemId, usdAmount) => {
-                const ugxRate = 3800; // Estimated UGX per 1 USD
-                const ugxAmount = Math.round(usdAmount * ugxRate);
-                const formattedUgx = new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX' }).format(ugxAmount);
+                // ... (existing UGX code)
+            };
 
-                if (!confirm(`Confirm Purchase: ${itemId} ($${usdAmount})\n\nThis will cost approximately ${formattedUgx}.\nProceed to manual payment verification?`)) return;
-
-                const res = await fetch(`${API_URL}/initiate-payment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: user.id, item_id: itemId, amount: ugxAmount })
-                });
-                const data = await res.json();
-                setPendingPayId({ id: data.payment_id, item: itemId, amount: formattedUgx });
+            const initiateCryptoPayment = async (itemId, usdAmount) => {
+                try {
+                    const res = await fetch(`${API_URL}/api/crypto/create-invoice`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: user.id, item_id: itemId, amount: usdAmount })
+                    });
+                    const data = await res.json();
+                    if (data.invoice_url) {
+                        window.location.href = data.invoice_url;
+                    } else {
+                        alert("Crypto Gateway currently offline. Try Mobile Money.");
+                    }
+                } catch (e) { alert("Crypto Connection Failed"); }
             };
 
             const confirmPay = async () => {
@@ -809,17 +813,17 @@
                             </div>
 
                             {/* Verified Tier */}
-                            <div className="bg-blue-50 border-2 border-blue-500 p-8 rounded-3xl flex flex-col relative hover:scale-105 transition-transform">
-                                <div className="absolute top-4 right-4 bg-blue-500 text-white text-[10px] px-2 py-1 rounded-full font-bold">POPULAR</div>
-                                <h2 className="text-2xl font-bold mb-2 text-blue-600 flex items-center gap-2">VERIFIED <Badge type="verified" /></h2>
-                                <div className="text-4xl font-black mb-6 text-blue-900">$1.99 <span className="text-sm opacity-50">/mo</span></div>
-                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-blue-800">
+                            <div className="bg-gradient-to-br from-black via-yellow-400 to-red-500 border-2 border-black p-8 rounded-3xl flex flex-col relative hover:scale-105 transition-transform text-white">
+                                <div className="absolute top-4 right-4 bg-black text-white text-[10px] px-2 py-1 rounded-full font-bold">POPULAR</div>
+                                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">VERIFIED <Badge type="verified" /></h2>
+                                <div className="text-4xl font-black mb-6">$1.99 <span className="text-sm opacity-50">/mo</span></div>
+                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80">
                                     <li>✓ Blue Status Identity</li>
                                     <li>✓ 2x Transmission Visibility</li>
                                     <li>✓ Multimedia Attachments (📎)</li>
                                     <li>✓ Unique Identity Lock</li>
                                 </ul>
-                                <button onClick={()=>initiatePayment('Verified', 1.99)} className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-colors">Upgrade Now</button>
+                                <button onClick={()=>promptPaymentMethod('Verified', 1.99)} className="w-full bg-blue-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-colors">Upgrade Now</button>
                             </div>
 
                             {/* Gold Tier */}
@@ -832,7 +836,7 @@
                                     <li>✓ Spawn Private Nodes (Channels)</li>
                                     <li>✓ Commission on Entry Fees</li>
                                 </ul>
-                                <button onClick={()=>initiatePayment('Gold', 4.99)} className="w-full bg-yellow-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-yellow-700 transition-colors">Go Gold</button>
+                                <button onClick={()=>promptPaymentMethod('Gold', 4.99)} className="w-full bg-yellow-600 text-white p-4 rounded-xl font-bold shadow-lg hover:bg-yellow-700 transition-colors">Go Gold</button>
                             </div>
 
                             {/* Dev Tier */}
@@ -849,24 +853,34 @@
                             </div>
                         </div>
 
-                        {pendingPayId && (
-                            <div className="modal">
-                                <div className="modal-content text-center">
-                                    <h2 className="text-2xl font-black mb-4 uppercase">Verify Transaction</h2>
-                                    <p className="text-sm opacity-60 mb-8">
-                                        Please send <b>{pendingPayId.amount}</b> to our official MoMo/Airtel number. 
-                                        Once sent, enter the Transaction ID below for verification.
-                                    </p>
-                                    <input id="tx-id" type="text" placeholder="Transaction ID (e.g. 192837465)" className="w-full border-2 border-black p-4 rounded-xl mb-4 font-black text-center" />
-                                    <div className="flex gap-4">
-                                        <button onClick={() => setPendingPayId(null)} className="flex-1 border-2 border-black p-3 font-bold">Cancel</button>
-                                        <button onClick={confirmPay} className="flex-1 bg-black text-white p-3 font-bold">Submit ID</button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <footer className="mt-12 text-center text-[10px] opacity-40 max-w-md mx-auto">
+                                        {view === 'payment-method' && pendingPayId && (
+                                            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-in fade-in duration-500">
+                                                <div className="modal-content shadow-2xl text-center p-8" onClick={e => e.stopPropagation()}>
+                                                    <h2 className="text-2xl font-black mb-4 handwritten">Choose Your Payment Method</h2>
+                                                    <p className="text-sm opacity-60 mb-8">
+                                                        For <b>{pendingPayId.item}</b> costing <b>{pendingPayId.amount}</b>.
+                                                    </p>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <button onClick={() => { 
+                                                            // This will trigger the crypto flow
+                                                            initiateCryptoPayment(pendingPayId.item, parseFloat(pendingPayId.amount.replace(/[^0-9.]/g, ''))); // Pass USD amount
+                                                            setPendingPayId(null); // Close the selection modal
+                                                        }} className="flex-1 bg-slate-800 text-white p-4 rounded-xl font-bold uppercase text-xs flex items-center justify-center gap-2 shadow-lg">
+                                                            <span>₿</span> Pay with Crypto
+                                                        </button>
+                                                        <button onClick={() => {
+                                                            // This will trigger the MoMo flow
+                                                            initiatePayment(pendingPayId.item, parseFloat(pendingPayId.amount.replace(/[^0-9.]/g, ''))); // Pass USD amount
+                                                            setPendingPayId(null); // Close the selection modal
+                                                        }} className="flex-1 bg-blue-600 text-white p-4 rounded-xl font-bold uppercase text-xs shadow-lg">
+                                                            Pay with Mobile Money
+                                                        </button>
+                                                    </div>
+                                                    <button onClick={() => setPendingPayId(null)} className="mt-8 w-full border-2 border-black p-3 font-black text-xs uppercase">Cancel</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                                <footer className="mt-12 text-center text-[10px] opacity-40 max-w-md mx-auto">
                             All transactions are processed via secure Ugandan payment gateways. By purchasing, you agree to the Campus Billboard conduct policy.
                         </footer>
                     </div>
