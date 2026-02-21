@@ -404,10 +404,18 @@
                 if (avatarFile) formData.append('avatar', avatarFile);
                 try {
                     const res = await fetch(`${API_URL}/update-profile`, { method: 'POST', body: formData });
-                    const data = await res.json();
                     if (res.ok) {
                         alert("Node Updated");
-                        setUser({...user, bio: bio || user.bio, avatar_url: data.avatar_url || user.avatar_url});
+                        // Fetch the full updated user object to ensure avatar_url is fresh
+                        const updatedUserRes = await fetch(`${API_URL}/get-user-id/${user.id}`);
+                        if (updatedUserRes.ok) {
+                            const updatedUser = await updatedUserRes.json();
+                            setUser(updatedUser);
+                        } else {
+                            console.error("Failed to fetch updated user after profile update.");
+                        }
+                    } else {
+                        alert("Update failed");
                     }
                 } catch (e) { alert("Update failed"); }
             };

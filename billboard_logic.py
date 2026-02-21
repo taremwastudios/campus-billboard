@@ -93,12 +93,15 @@ class BillboardManager:
             last_post_id INTEGER,
             PRIMARY KEY(user_id, category)
         )'''
+        
+        messages_sql = "CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, sender_id INTEGER, receiver_id INTEGER, content TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
 
         cur.execute(users_sql)
         cur.execute(posts_sql)
         cur.execute(channels_sql)
         cur.execute(memberships_sql)
         cur.execute(markers_sql)
+        cur.execute(messages_sql) # Moved here
         
         conn.commit()
         cur.close()
@@ -298,10 +301,6 @@ class BillboardManager:
     def send_message(self, sender_id, receiver_id, content):
         conn = self.get_connection()
         cur = conn.cursor()
-        # Re-using posts table for messages to keep it simple, or we can create a messages table.
-        # For MVP, let's use a dedicated messages table for better structure.
-        msg_table_sql = "CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, sender_id INTEGER, receiver_id INTEGER, content TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
-        cur.execute(msg_table_sql)
         
         sql = "INSERT INTO messages (sender_id, receiver_id, content) VALUES (%s, %s, %s)" if self.database_url else "INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)"
         cur.execute(sql, (sender_id, receiver_id, content))
