@@ -62,6 +62,39 @@
         .power-tag { font-size: 10px; color: var(--accent); vertical-align: super; font-weight: 900; margin-left: 2px; }
         .typewriter-fade { font-size: 10px; opacity: 0.4; font-family: 'Courier Prime', monospace; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        
+        .badge-ug-gradient {
+            background: linear-gradient(45deg, #000, #FCD116, #CE1126);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent; /* Fallback for non-webkit */
+        }
+
+        .ug-gradient-text {
+            background: linear-gradient(45deg, #000, #FCD116, #CE1126);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            display: inline-block; /* Essential for text gradients */
+        }
+        
+        /* For the card border effect */
+        .card-ug-gradient-border {
+            position: relative;
+            background-clip: padding-box; /* This is key */
+            border: 2px solid transparent; /* Transparent border, will be covered by pseudo-element */
+        }
+        .card-ug-gradient-border::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            margin: -2px; /* Offset to cover the border */
+            border-radius: inherit; /* Inherit border-radius from parent */
+            background: linear-gradient(45deg, #000, #FCD116, #CE1126);
+            z-index: -1; /* Behind the content */
+        }
     </style>
 </head>
 <body>
@@ -76,7 +109,7 @@
                 </svg>
             );
 
-            if (type === 'verified') return <span className="text-blue-500" style={{background: 'linear-gradient(45deg, #000, #FCD116, #CE1126)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>{tickIcon}</span>;
+            if (type === 'verified') return <span className="text-blue-500 badge-ug-gradient">{tickIcon}</span>;
             if (type === 'gold') return <span className="text-yellow-500">{tickIcon}</span>;
             if (type === 'dev') return <span className="text-green-500">{tickIcon}</span>;
             return null;
@@ -502,8 +535,15 @@
                 fetchChannels();
             };
 
-            const initiatePayment = async (itemId, usdAmount) => {
-                // ... (existing UGX code)
+            const promptPaymentMethod = async (itemId, usdAmount) => {
+                const ugxRate = 3800; // Estimated UGX per 1 USD
+                const ugxAmount = Math.round(usdAmount * ugxRate);
+                const formattedUgx = new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX' }).format(ugxAmount);
+
+                if (confirm(`Proceed to payment? This will cost approximately ${formattedUgx} (UGX).`)) {
+                    setPendingPayId({ id: null, item: itemId, amount: formattedUgx, usd_amount: usdAmount }); // Store details temporarily
+                    setView('payment-method'); // Navigate to the payment method selection view
+                }
             };
 
             const initiateCryptoPayment = async (itemId, usdAmount) => {
@@ -515,14 +555,26 @@
                     });
                     const data = await res.json();
                     if (data.invoice_url) {
-                        window.location.href = data.invoice_url;
+                        window.open(data.invoice_url, '_blank'); // Open in new tab
                     } else {
                         alert("Crypto Gateway currently offline. Try Mobile Money.");
                     }
                 } catch (e) { alert("Crypto Connection Failed"); }
             };
 
-            const confirmPay = async () => {
+            const initiateManualPayment = async (itemId, usdAmount) => { // Renamed from initiatePayment for clarity
+                const ugxRate = 3800;
+                const ugxAmount = Math.round(usdAmount * ugxRate);
+                const formattedUgx = new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX' }).format(ugxAmount);
+
+                // This function is now for MoMo/Manual verification path
+                if (confirm(`Proceed with Mobile Money payment? This will cost approximately ${formattedUgx} (UGX). You will be prompted for a Transaction ID.`)) {
+                    setPendingPayId({ id: null, item: itemId, amount: formattedUgx, usd_amount: usdAmount }); // Store details temporarily
+                    setView('manual-payment'); // Navigate to the manual payment input view
+                }
+            };
+
+            const confirmManualPay = async () => { // Renamed from confirmPay for clarity
                 const txId = document.getElementById('tx-id').value;
                 if (!txId || txId.length < 6) { alert("Enter a valid Transaction ID"); return; }
                 try {
@@ -534,6 +586,7 @@
                     if (res.ok) { 
                         alert("Submission Received! Our team will verify your transaction ID shortly. Your status will update once confirmed."); 
                         setPendingPayId(null);
+                        setView('store'); // Return to store after submission
                     } else alert("Verification Failed. Please check your Transaction ID.");
                 } catch (e) { alert("Submission Error"); }
             };
@@ -813,11 +866,11 @@
                             </div>
 
                             {/* Verified Tier */}
-                            <div className="bg-gradient-to-br from-black via-yellow-400 to-red-500 border-2 border-black p-8 rounded-3xl flex flex-col relative hover:scale-105 transition-transform text-white">
+                            <div className="bg-blue-50 card-ug-gradient-border p-8 rounded-3xl flex flex-col relative hover:scale-105 transition-transform">
                                 <div className="absolute top-4 right-4 bg-black text-white text-[10px] px-2 py-1 rounded-full font-bold">POPULAR</div>
-                                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">VERIFIED <Badge type="verified" /></h2>
-                                <div className="text-4xl font-black mb-6">$1.99 <span className="text-sm opacity-50">/mo</span></div>
-                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80">
+                                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 ug-gradient-text">VERIFIED <Badge type="verified" /></h2>
+                                <div className="text-4xl font-black mb-6 ug-gradient-text">$1.99 <span className="text-sm opacity-50 text-blue-800">/mo</span></div>
+                                <ul className="flex-1 space-y-4 mb-8 text-sm opacity-80 text-blue-800">
                                     <li>✓ Blue Status Identity</li>
                                     <li>✓ 2x Transmission Visibility</li>
                                     <li>✓ Multimedia Attachments (📎)</li>
@@ -880,13 +933,31 @@
                                                 </div>
                                             </div>
                                         )}
-                                                <footer className="mt-12 text-center text-[10px] opacity-40 max-w-md mx-auto">
-                            All transactions are processed via secure Ugandan payment gateways. By purchasing, you agree to the Campus Billboard conduct policy.
-                        </footer>
-                    </div>
-                )}
-
-                    {showDevApp && (
+                                                                        <footer className="mt-12 text-center text-[10px] opacity-40 max-w-md mx-auto">
+                                                                            All transactions are processed via secure Ugandan payment gateways. By purchasing, you agree to the Campus Billboard conduct policy.
+                                                                        </footer>
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {view === 'manual-payment' && pendingPayId && (
+                                                                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-in fade-in duration-500">
+                                                                        <div className="modal-content shadow-2xl text-center p-8" onClick={e => e.stopPropagation()}>
+                                                                            <h2 className="text-2xl font-black mb-4 uppercase">Verify MoMo Transaction</h2>
+                                                                            <p className="text-sm opacity-60 mb-8">
+                                                                                Please send <b>{pendingPayId.amount}</b> to our official MoMo/Airtel number. 
+                                                                                Once sent, enter the Transaction ID below for verification.
+                                                                            </p>
+                                                                            <input id="tx-id" type="text" placeholder="Transaction ID (e.g. 192837465)" className="w-full border-2 border-black p-4 rounded-xl mb-4 font-black text-center" />
+                                                                            <div className="flex gap-4">
+                                                                                <button onClick={() => { setPendingPayId(null); setView('store'); }} className="flex-1 border-2 border-black p-3 font-bold">Cancel</button>
+                                                                                <button onClick={confirmManualPay} className="flex-1 bg-black text-white p-3 font-bold">Submit ID</button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                
+                                                                {showDevApp && (
+                                                
                         <div className="modal">
                             <div className="modal-content">
                                 <h2 className="text-2xl font-black mb-6 handwritten text-center">Dev Application</h2>
